@@ -291,13 +291,7 @@ func (csm *cloudServiceManager) DeleteScalingInstances(groupID string, instanceI
 // The workflow works as follows:
 // 1. create scaling policy with scheduled type.
 // 2. execute the scaling policy immediately(not waiting the policy's launch time).
-// 3. wait for the instance number be increased and remove the scaling policy.
 func (csm *cloudServiceManager) IncreaseSizeInstance(groupID string, delta int) error {
-	originalInstanceSize, err := csm.GetDesireInstanceNumber(groupID)
-	if err != nil {
-		return err
-	}
-
 	// create a scaling policy
 	addOperation := huaweicloudsdkasmodel.GetScalingPolicyActionV1OperationEnum().ADD
 	instanceNum := int32(delta)
@@ -341,20 +335,7 @@ func (csm *cloudServiceManager) IncreaseSizeInstance(groupID string, delta int) 
 		return err
 	}
 
-	// wait for instance number indeed be increased
-	return wait.Poll(5*time.Second, 300*time.Second, func() (done bool, err error) {
-		currentInstanceSize, err := csm.GetDesireInstanceNumber(groupID)
-		if err != nil {
-			return false, err
-		}
-
-		if currentInstanceSize == originalInstanceSize+delta {
-			return true, nil
-		}
-		klog.V(1).Infof("waiting instance increase from %d to %d, now is: %d", originalInstanceSize, originalInstanceSize+delta, currentInstanceSize)
-
-		return false, nil
-	})
+	return nil
 }
 
 func (csm *cloudServiceManager) ListScalingGroups() ([]AutoScalingGroup, error) {
