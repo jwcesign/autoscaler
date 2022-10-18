@@ -475,6 +475,29 @@ func (csm *cloudServiceManager) getScalingGroupByID(groupID string) (*huaweiclou
 	return response.ScalingGroup, nil
 }
 
+func (csm *cloudServiceManager) listScalingTagsByID(groupID string) (map[string]string, error) {
+	asClient := csm.getASClientFunc()
+	opts := &huaweicloudsdkasmodel.ListScalingTagInfosByResourceIdRequest{
+		ResourceType: huaweicloudsdkasmodel.GetListScalingTagInfosByResourceIdRequestResourceTypeEnum().SCALING_GROUP_TAG,
+		ResourceId: groupID,
+	}
+	response, err := asClient.ListScalingTagInfosByResourceId(opts)
+	if err != nil {
+		klog.Errorf("failed to list scaling group tags. scaling group id: %s, error: %v", groupID, err)
+		return nil, err
+	}
+	if response == nil || response.Tags == nil {
+		return nil, nil
+	}
+
+	var tags map[string]string
+	for _, tag := range *response.Tags {
+		tags[tag.Key] = *tag.Value
+	}
+
+	return tags, nil
+}
+
 func (csm *cloudServiceManager) getScalingGroupConfigByID(groupID, configID string) (*huaweicloudsdkasmodel.ScalingConfiguration, error) {
 	asClient := csm.getASClientFunc()
 	opts := &huaweicloudsdkasmodel.ShowScalingConfigRequest{
@@ -513,7 +536,13 @@ func (csm *cloudServiceManager) getAsgTemplate(groupID string) (*asgTemplate, er
 	}
 
 	configuration, err := csm.getScalingGroupConfigByID(groupID, *sg.ScalingConfigurationId)
-
+	if err != nil {
+		return nil, err
+	}
+	tags, err := csm.listScalingTagsByID(groupID)
+	if err != nil {
+		return nil, err
+	}
 	for _, az := range *sg.AvailableZones {
 		flavors, err := csm.listFlavors(az)
 		if err != nil {
@@ -532,6 +561,7 @@ func (csm *cloudServiceManager) getAsgTemplate(groupID string) (*asgTemplate, er
 				vcpu: vcpus,
 				ram:  int64(flavor.Ram),
 				zone: az,
+				tags: tags,
 			}, nil
 		}
 	}
