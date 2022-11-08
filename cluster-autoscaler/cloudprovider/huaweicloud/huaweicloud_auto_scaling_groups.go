@@ -17,6 +17,7 @@ limitations under the License.
 package huaweicloud
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -52,17 +53,18 @@ func (asg *autoScalingGroupCache) Register(autoScalingGroup *AutoScalingGroup) {
 func (asg *autoScalingGroupCache) FindForInstance(instanceId string, csm *cloudServiceManager) (*AutoScalingGroup, error) {
 	asg.cacheMutex.Lock()
 	defer asg.cacheMutex.Unlock()
+	fmt.Println(asg.instanceToAsg, asg.instancesNotInManagedAsg)
 	if config, found := asg.instanceToAsg[instanceId]; found {
 		return config, nil
-	}
-	if _, found := asg.instancesNotInManagedAsg[instanceId]; found {
-		return nil, nil
 	}
 	if err := asg.regenerateCache(csm); err != nil {
 		return nil, err
 	}
 	if config, found := asg.instanceToAsg[instanceId]; found {
 		return config, nil
+	}
+	if _, found := asg.instancesNotInManagedAsg[instanceId]; found {
+		return nil, nil
 	}
 	// instance does not belong to any configured ASG
 	asg.instancesNotInManagedAsg[instanceId] = struct{}{}

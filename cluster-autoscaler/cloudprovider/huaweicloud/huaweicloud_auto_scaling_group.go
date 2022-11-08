@@ -121,7 +121,7 @@ func (asg *AutoScalingGroup) DeleteNodes(nodes []*apiv1.Node) error {
 			return fmt.Errorf("node does not belong to this node group")
 		}
 
-		klog.V(1).Infof("going to remove node from scaling group. group: %s, node: %s", asg.groupID, providerID)
+		klog.V(1).Infof("going to remove node from scaling group. group: %s, node: %s, node instance id: %s", asg.groupID, node.Name, providerID)
 		instanceIds = append(instanceIds, providerID)
 		nodeNames = append(nodeNames, node.Name)
 	}
