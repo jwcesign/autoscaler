@@ -56,6 +56,7 @@ func (asg *autoScalingGroupCache) FindForInstance(instanceId string, csm *cloudS
 		return config, nil
 	}
 	if _, found := asg.instancesNotInManagedAsg[instanceId]; found {
+		klog.Info("Try find instance not in managed asg:%s", instanceId)
 		return nil, nil
 	}
 	if err := asg.regenerateCache(csm); err != nil {
