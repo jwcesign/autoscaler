@@ -94,13 +94,14 @@ type cloudServiceManager struct {
 }
 
 type asgTemplate struct {
-	name   string
-	vcpu   int64
-	ram    int64
-	gpu    int64
-	region string
-	zone   string
-	tags   map[string]string
+	name    string
+	vcpu    int64
+	ram     int64
+	storage int64
+	gpu     int64
+	region  string
+	zone    string
+	tags    map[string]string
 }
 
 func newCloudServiceManager(cloudConfig *CloudConfig) *cloudServiceManager {
@@ -572,6 +573,13 @@ func (csm *cloudServiceManager) getAsgTemplate(groupID string) (*asgTemplate, er
 		klog.Errorf("failed to get scaling group config by id:%s", *sg.ScalingConfigurationId)
 		return nil, err
 	}
+
+	var storage int64
+	for _, disk := range *configuration.InstanceConfig.Disk {
+		klog.Infof("Get disk:%v", *disk.Size)
+		storage += int64(*disk.Size)
+	}
+
 	tags, err := csm.listScalingTagsByID(groupID)
 	if err != nil {
 		klog.Errorf("failed to list scaling tags by id:%s", groupID)
@@ -592,11 +600,12 @@ func (csm *cloudServiceManager) getAsgTemplate(groupID string) (*asgTemplate, er
 
 			vcpus, _ := strconv.ParseInt(flavor.Vcpus, 10, 64)
 			return &asgTemplate{
-				name: flavor.Name,
-				vcpu: vcpus,
-				ram:  int64(flavor.Ram),
-				zone: az,
-				tags: tags,
+				name:    flavor.Name,
+				vcpu:    vcpus,
+				ram:     int64(flavor.Ram),
+				storage: storage,
+				zone:    az,
+				tags:    tags,
 			}, nil
 		}
 	}
@@ -621,6 +630,7 @@ func (csm *cloudServiceManager) buildNodeFromTemplate(asgName string, template *
 	node.Status.Capacity[apiv1.ResourceCPU] = *resource.NewQuantity(template.vcpu, resource.DecimalSI)
 	node.Status.Capacity[gpu.ResourceNvidiaGPU] = *resource.NewQuantity(template.gpu, resource.DecimalSI)
 	node.Status.Capacity[apiv1.ResourceMemory] = *resource.NewQuantity(template.ram*1024*1024, resource.DecimalSI)
+	node.Status.Capacity[apiv1.ResourceEphemeralStorage] = *resource.NewQuantity(template.storage*1024*1024*1024, resource.DecimalSI)
 
 	node.Status.Allocatable = node.Status.Capacity
 
@@ -629,6 +639,9 @@ func (csm *cloudServiceManager) buildNodeFromTemplate(asgName string, template *
 	node.Spec.Taints = extractTaintsFromTags(template.tags)
 
 	node.Status.Conditions = cloudprovider.BuildReadyConditions()
+
+	klog.Info("node template:%v", node)
+
 	return &node, nil
 }
 
